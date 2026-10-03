@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم الشخصية الشاملة - الميزانية واليوميات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen p-4 md:p-6">
+
+    <!-- PIN Lock Overlay -->
+    <div id="pinOverlay" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-xs w-full text-center space-y-4 shadow-2xl">
+            <div class="text-3xl">🔒</div>
+            <h2 class="text-lg font-bold text-slate-100">أدخل رمز الخصوصية</h2>
+            <input type="password" id="pinInput" maxlength="4" placeholder="••••" class="w-full text-center text-2xl tracking-widest bg-slate-950 border border-slate-700 rounded-xl py-2 text-emerald-400 focus:outline-none focus:border-emerald-500">
+            <button onclick="unlockApp()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition">فتح التطبيق</button>
+            <p id="pinError" class="text-xs text-rose-500 hidden">الرمز غير صحيح!</p>
+        </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto space-y-6">
+
+        <!-- Header -->
+        <header class="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-wrap justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-black text-emerald-400">نظام الميزانية واليوميات الشامل</h1>
+                <p class="text-slate-400 text-xs mt-1">تتبع العمل، الأقساط، الجدول الأسبوعي، الرسوم البيانية، واليوميات</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="text-xs bg-emerald-950 text-emerald-400 border border-emerald-800/60 px-3 py-1.5 rounded-lg font-bold">20 ج.م / ساعة</span>
+                <button onclick="togglePinLock()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-sm transition" title="قفل الخصوصية">🔒 قفل PIN</button>
+            </div>
+        </header>
+
+        <!-- Burnout Alert Banner -->
+        <div id="burnoutBanner" class="hidden bg-rose-950/60 border border-rose-800/80 p-4 rounded-xl text-rose-200 text-sm flex items-center gap-3">
+            <span class="text-xl">⚠️</span>
+            <div>
+                <p class="font-bold">مؤشر الإرهاق التراكمي!</p>
+                <p class="text-xs text-rose-300/80">معدل نومك أقل من 5 ساعات لعدة أيام متتالية. احرص على الراحة والمذاكرة يوم الخميس لحماية طاقتك وصحتك.</p>
+            </div>
+        </div>
+
+        <!-- Dynamic Stats Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                <span class="text-xs text-slate-400 block mb-1">إجمالي ساعات العمل</span>
+                <p id="statHours" class="text-xl font-bold text-indigo-400">0 ساعة</p>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                <span class="text-xs text-slate-400 block mb-1">إجمالي الدخل</span>
+                <p id="statIncome" class="text-xl font-bold text-emerald-400">0 ج.م</p>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                <span class="text-xs text-slate-400 block mb-1">إجمالي المصاريف</span>
+                <p id="statExpense" class="text-xl font-bold text-rose-400">0 ج.م</p>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                <span class="text-xs text-slate-400 block mb-1">الصافي المتبقي</span>
+                <p id="statNet" class="text-xl font-bold text-amber-400">0 ج.م</p>
+            </div>
+        </div>
+
+        <!-- Envelope Budgeting System -->
+        <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-3">
+            <h2 class="text-base font-bold text-slate-200">✉️ نظام الأظرف المالية الرقمية (Envelope Budgeting)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3" id="envelopesContainer">
+                <!-- Dynamic Envelopes Rendered Here -->
+            </div>
+        </div>
+
+        <!-- Charts Section (الرسوم والمؤشرات البيانية) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+                <h3 class="text-xs font-bold text-slate-300 mb-3 text-center">📊 الدخل المكتسب مقابل المصاريف اليومية</h3>
+                <div class="h-48 relative">
+                    <canvas id="financeChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+                <h3 class="text-xs font-bold text-slate-300 mb-3 text-center">💤 ساعات العمل مقابل ساعات النوم</h3>
+                <div class="h-48 relative">
+                    <canvas id="healthChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Action Buttons -->
+        <div class="flex flex-wrap gap-3">
+            <button onclick="calculateTotals()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl transition text-center shadow-lg">
+                ⚡ حساب إجمالي الأيام والدخل
+            </button>
+            <button onclick="clearFinancialsOnly()" class="bg-slate-900 hover:bg-amber-900/30 text-amber-400 border border-amber-800/60 px-4 py-3 rounded-xl text-xs md:text-sm font-semibold transition">
+                🧹 تصفير الحسابات فقط (مع بقاء اليوميات)
+            </button>
+            <button onclick="exportData()" class="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 px-4 py-3 rounded-xl text-xs transition">
+                📥 نسخ احتياطي
+            </button>
+            <button onclick="importData()" class="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 px-4 py-3 rounded-xl text-xs transition">
+                📤 استعادة
+            </button>
+        </div>
+
+        <!-- Flexible Debts & Installments Section -->
+        <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="text-base font-bold text-slate-200">💳 الأقساط والديون والالتزامات الشهريّة</h2>
+                <button onclick="addDebtModal()" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3 py-1.5 rounded-lg transition">+ إضافة التزام/دين جديد</button>
+            </div>
+            <div id="debtsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <!-- Dynamic Debts Rendered Here -->
+            </div>
+        </div>
+
+        <!-- Weekly Shift & College Planner -->
+        <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-3">
+            <h2 class="text-base font-bold text-slate-200">🗓️ مخطط الشيفتات والجدول الأسبوعي</h2>
+            <div class="grid grid-cols-2 md:grid-cols-7 gap-2 text-center text-xs" id="weeklyPlanner">
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800"><p class="font-bold text-emerald-400">الأحد</p><p class="text-[10px] text-slate-400 mt-1">كلية + عمل 4.5س</p></div>
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800"><p class="font-bold text-emerald-400">الإثنين</p><p class="text-[10px] text-slate-400 mt-1">كلية + عمل 4.5س</p></div>
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800"><p class="font-bold text-emerald-400">الثلاثاء</p><p class="text-[10px] text-slate-400 mt-1">كلية + عمل 5س</p></div>
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800"><p class="font-bold text-emerald-400">الأربعاء</p><p class="text-[10px] text-slate-400 mt-1">كلية + عمل 6س</p></div>
+                <div class="bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-800/60"><p class="font-bold text-indigo-300">الخميس</p><p class="text-[10px] text-indigo-400 mt-1">راحة + مذاكرة 0س عمل</p></div>
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800"><p class="font-bold text-emerald-400">الجمعة</p><p class="text-[10px] text-slate-400 mt-1">شيفت مكثف 11.5س</p></div>
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800"><p class="font-bold text-emerald-400">السبت</p><p class="text-[10px] text-slate-400 mt-1">شيفت مكثف 11.5س</p></div>
+            </div>
+        </div>
+
+        <!-- Add Daily Entry Form -->
+        <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
+            <h2 class="text-base font-bold text-slate-200">✍️ تسجيل يومية وساعات عمل جديدة</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">التاريخ</label>
+                    <input type="date" id="entryDate" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">ساعات العمل اليوم</label>
+                    <input type="number" step="0.5" id="entryHours" placeholder="مثال: 4.5" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">ساعات النوم اليوم</label>
+                    <input type="number" step="0.5" id="entrySleep" placeholder="مثال: 5" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">المصاريف اليومية (ج.م)</label>
+                    <input type="number" id="entryExpense" placeholder="أكل + مواصلات" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">الوسوم (Tags)</label>
+                    <input type="text" id="entryTags" placeholder="#عمل #كلية #إنجاز" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">الحالة النفسية / تقييم اليوم</label>
+                    <select id="entryMood" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <option value="😃">😃 ممتاز وإنجاز عالٍ</option>
+                        <option value="😐" selected>😐 يوم عادي وطبيعي</option>
+                        <option value="😫">😫 يوم شاق وإرهاق</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">تدوين اليوميات والملاحظات (تظل محفوظة دائماً حتى عند تصفير الحسابات)</label>
+                <textarea id="entryNotes" rows="3" placeholder="اكتب مذكراتك وأفكارك هنا..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 resize-none"></textarea>
+            </div>
+
+            <button onclick="addEntry()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition">حفظ اليومية والملاحظات</button>
+        </div>
+
+        <!-- Filter & Search Logs -->
+        <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
+            <div class="flex flex-wrap justify-between items-center gap-3">
+                <h2 class="text-base font-bold text-slate-200">📖 سجل اليوميات والمذكرات المخزنة</h2>
+                <input type="text" id="searchInput" oninput="renderLogs()" placeholder="🔍 بحث في اليوميات..." class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+            </div>
+            <div id="logsContainer" class="space-y-3">
+                <!-- Logs Dynamic Render -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Hidden File Input for Import -->
+    <input type="file" id="importFileInput" class="hidden" accept=".json" onchange="processImport(event)">
+
+    <script>
+        const HOURLY_RATE = 20;
+        let logs = JSON.parse(localStorage.getItem('user_app_logs') || '[]');
+        let debts = JSON.parse(localStorage.getItem('user_app_debts') || JSON.stringify([
+            { id: 1, name: 'إيجار السكن (جمصة)', amount: 750, payDay: 15 },
+            { id: 2, name: 'قسط التليفون الشهرى', amount: 1000, payDay: 1 }
+        ]));
+        let pinCode = localStorage.getItem('user_app_pin') || '';
+
+        let financeChartInstance = null;
+        let healthChartInstance = null;
+
+        // Security PIN Check
+        if (pinCode) {
+            document.getElementById('pinOverlay').classList.remove('hidden');
+        }
+
+        function unlockApp() {
+            const input = document.getElementById('pinInput').value;
+            if (input === pinCode) {
+                document.getElementById('pinOverlay').classList.add('hidden');
+                document.getElementById('pinError').classList.add('hidden');
+            } else {
+                document.getElementById('pinError').classList.remove('hidden');
+            }
+        }
+
+        function togglePinLock() {
+            const current = localStorage.getItem('user_app_pin');
+            if (current) {
+                if (confirm('هل تريد إلغاء قفل الخصوصية؟')) {
+                    localStorage.removeItem('user_app_pin');
+                    pinCode = '';
+                    alert('تم إلغاء القفل.');
+                }
+            } else {
+                const newPin = prompt('أدخل رمز PIN جديد من 4 أرقام:');
+                if (newPin && newPin.length === 4) {
+                    localStorage.setItem('user_app_pin', newPin);
+                    pinCode = newPin;
+                    alert('تم تفعيل قفل الخصوصية بنجاح!');
+                }
+            }
+        }
+
+        // Render Debts
+        function renderDebts() {
+            const container = document.getElementById('debtsContainer');
+            const today = new Date();
+            const currentDay = today.getDate();
+
+            container.innerHTML = debts.map((d, index) => {
+                let daysLeft = d.payDay - currentDay;
+                if (daysLeft < 0) daysLeft += 30;
+
+                return `
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-slate-200 text-xs">${d.name}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-emerald-400 font-extrabold text-xs">${d.amount} ج.م</span>
+                                <button onclick="deleteDebt(${index})" class="text-slate-600 hover:text-rose-400 text-xs">✕</button>
+                            </div>
+                        </div>
+                        <div class="flex justify-between text-[11px] text-slate-400">
+                            <span>موعد السداد: يوم ${d.payDay} في الشهر</span>
+                            <span class="${daysLeft <= 3 ? 'text-rose-400 font-bold' : 'text-amber-400'}">متبقي: ${daysLeft} يوم</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addDebtModal() {
+            const name = prompt('اسم الالتزام أو الدين:');
+            if (!name) return;
+            const amount = parseFloat(prompt('المبلغ المطلوب (ج.م):')) || 0;
+            const payDay = parseInt(prompt('يوم السداد من كل شهر (1-31):')) || 1;
+
+            debts.push({ id: Date.now(), name, amount, payDay });
+            localStorage.setItem('user_app_debts', JSON.stringify(debts));
+            renderDebts();
+        }
+
+        function deleteDebt(index) {
+            debts.splice(index, 1);
+            localStorage.setItem('user_app_debts', JSON.stringify(debts));
+            renderDebts();
+        }
+
+        // Render Envelopes
+        function renderEnvelopes(totalIncome) {
+            const container = document.getElementById('envelopesContainer');
+            const housing = Math.round(totalIncome * 0.35);
+            const installment = Math.round(totalIncome * 0.30);
+            const dailyLiving = Math.round(totalIncome * 0.35);
+
+            container.innerHTML = `
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                    <div class="flex justify-between text-xs"><span class="text-slate-400">🏠 ظرف السكن (جمصة)</span><span class="text-emerald-400 font-bold">${housing} / 750 ج</span></div>
+                    <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden"><div class="bg-emerald-500 h-full" style="width: ${Math.min((housing/750)*100, 100)}%"></div></div>
+                </div>
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                    <div class="flex justify-between text-xs"><span class="text-slate-400">📱 ظرف القسط (التليفون)</span><span class="text-indigo-400 font-bold">${installment} / 1000 ج</span></div>
+                    <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden"><div class="bg-indigo-500 h-full" style="width: ${Math.min((installment/1000)*100, 100)}%"></div></div>
+                </div>
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                    <div class="flex justify-between text-xs"><span class="text-slate-400">🍲 ظرف الأكل والمواصلات</span><span class="text-amber-400 font-bold">${dailyLiving} ج</span></div>
+                    <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden"><div class="bg-amber-500 h-full" style="width: 100%"></div></div>
+                </div>
+            `;
+        }
+
+        // Render Charts (الرسم البياني)
+        function renderCharts() {
+            const recent = logs.slice(0, 7).reverse();
+            const labels = recent.map(l => l.date);
+            const incomes = recent.map(l => l.hours * HOURLY_RATE);
+            const expenses = recent.map(l => l.expense || 0);
+            const hours = recent.map(l => l.hours || 0);
+            const sleeps = recent.map(l => l.sleep || 0);
+
+            if (financeChartInstance) financeChartInstance.destroy();
+            if (healthChartInstance) healthChartInstance.destroy();
+
+            const ctx1 = document.getElementById('financeChart').getContext('2d');
+            financeChartInstance = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'الدخل (ج.م)', data: incomes, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 },
+                        { label: 'المصاريف (ج.م)', data: expenses, borderColor: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.1)', fill: true, tension: 0.3 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } } }
+            });
+
+            const ctx2 = document.getElementById('healthChart').getContext('2d');
+            healthChartInstance = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'ساعات العمل', data: hours, backgroundColor: '#6366f1' },
+                        { label: 'ساعات النوم', data: sleeps, backgroundColor: '#f59e0b' }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } } }
+            });
+        }
+
+        // Render Logs
+        function renderLogs() {
+            const container = document.getElementById('logsContainer');
+            const query = document.getElementById('searchInput').value.toLowerCase();
+
+            const filtered = logs.filter(l => 
+                (l.notes && l.notes.toLowerCase().includes(query)) ||
+                (l.tags && l.tags.toLowerCase().includes(query)) ||
+                l.date.includes(query)
+            );
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<p class="text-slate-500 italic text-center py-4 text-xs">لا توجد يوميات مسجلة تطابق البحث.</p>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map((log, index) => {
+                const income = log.hours * HOURLY_RATE;
+                const net = income - log.expense;
+                const hasFinancials = (log.hours > 0 || log.expense > 0);
+
+                return `
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <div class="flex justify-between items-center border-b border-slate-800/80 pb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-base">${log.mood || '😐'}</span>
+                                <span class="font-bold text-emerald-400 text-xs">${log.date}</span>
+                                ${hasFinancials ? `<span class="text-slate-400 text-xs">| عمل: ${log.hours} س (${income} ج)</span>` : '<span class="text-slate-500 text-[11px]">| (ملاحظات فقط)</span>'}
+                            </div>
+                            <div class="flex items-center gap-3">
+                                ${hasFinancials ? `<span class="text-rose-400 text-xs">مصروف: ${log.expense} ج</span>` : ''}
+                                <button onclick="deleteLog(${index})" class="text-slate-600 hover:text-rose-400 text-xs">حذف</button>
+                            </div>
+                        </div>
+                        ${log.tags ? `<div class="text-[10px] text-indigo-400">${log.tags}</div>` : ''}
+                        ${log.notes ? `<div class="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/50">${log.notes}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            checkBurnout();
+        }
+
+        function calculateTotals() {
+            let totalHours = 0, totalExpense = 0;
+            logs.forEach(l => {
+                totalHours += parseFloat(l.hours || 0);
+                totalExpense += parseFloat(l.expense || 0);
+            });
+            const totalIncome = totalHours * HOURLY_RATE;
+            const net = totalIncome - totalExpense;
+
+            document.getElementById('statHours').innerText = `${totalHours} ساعة`;
+            document.getElementById('statIncome').innerText = `${totalIncome.toLocaleString()} ج.م`;
+            document.getElementById('statExpense').innerText = `${totalExpense.toLocaleString()} ج.م`;
+            document.getElementById('statNet').innerText = `${net.toLocaleString()} ج.م`;
+
+            renderEnvelopes(totalIncome);
+            renderCharts();
+        }
+
+        function addEntry() {
+            const date = document.getElementById('entryDate').value || new Date().toISOString().split('T')[0];
+            const hours = parseFloat(document.getElementById('entryHours').value) || 0;
+            const sleep = parseFloat(document.getElementById('entrySleep').value) || 0;
+            const expense = parseFloat(document.getElementById('entryExpense').value) || 0;
+            const tags = document.getElementById('entryTags').value.trim();
+            const mood = document.getElementById('entryMood').value;
+            const notes = document.getElementById('entryNotes').value.trim();
+
+            if (hours === 0 && expense === 0 && !notes) {
+                alert('برجاء أدخال ساعات العمل أو المصاريف أو كتابة ملاحظات.');
+                return;
+            }
+
+            logs.unshift({ date, hours, sleep, expense, tags, mood, notes });
+            localStorage.setItem('user_app_logs', JSON.stringify(logs));
+
+            document.getElementById('entryHours').value = '';
+            document.getElementById('entrySleep').value = '';
+            document.getElementById('entryExpense').value = '';
+            document.getElementById('entryTags').value = '';
+            document.getElementById('entryNotes').value = '';
+
+            renderLogs();
+            calculateTotals();
+        }
+
+        function clearFinancialsOnly() {
+            if (logs.length === 0) return alert('لا توجد بيانات لتصفيرها.');
+            if (confirm('هل أنت تأكد من تصفير الحسابات المالية فقط مع الحفاظ على نص اليوميات؟')) {
+                logs = logs.map(l => ({ ...l, hours: 0, expense: 0 }));
+                localStorage.setItem('user_app_logs', JSON.stringify(logs));
+                renderLogs();
+                calculateTotals();
+            }
+        }
+
+        function deleteLog(index) {
+            logs.splice(index, 1);
+            localStorage.setItem('user_app_logs', JSON.stringify(logs));
+            renderLogs();
+            calculateTotals();
+        }
+
+        function checkBurnout() {
+            const recent = logs.slice(0, 3);
+            let lowSleepCount = 0;
+            recent.forEach(l => {
+                if (l.sleep && l.sleep < 5) lowSleepCount++;
+            });
+
+            const banner = document.getElementById('burnoutBanner');
+            if (lowSleepCount >= 2) {
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ logs, debts }));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `backup_app_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importData() {
+            document.getElementById('importFileInput').click();
+        }
+
+        function processImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (parsed.logs) logs = parsed.logs;
+                    if (parsed.debts) debts = parsed.debts;
+                    localStorage.setItem('user_app_logs', JSON.stringify(logs));
+                    localStorage.setItem('user_app_debts', JSON.stringify(debts));
+                    renderLogs();
+                    renderDebts();
+                    calculateTotals();
+                    alert('تمت استعادة البيانات بنجاح!');
+                } catch (err) {
+                    alert('ملف غير صالح!');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Initialize
+        document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
+        renderDebts();
+        renderLogs();
+        calculateTotals();
+    </script>
+</body>
+</html>
